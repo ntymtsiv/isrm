@@ -26,8 +26,14 @@ Example of response:
 
 .. code-block:: bash
 
-  {
-    "status": "started"
+  {   
+    "jobs": [
+      {   
+        "date": "2015-03-26T10:27",
+        "id": "8c4c9ddc-d389-11e4-b9f7-14dae9dfafc6",
+        "job_name": "2015_03_26_10_27J8c4c9ddc-d389-11e4-b9f7-14dae9dfafc6"
+      }
+    ]
   }
 
 
