@@ -38,6 +38,18 @@ common_opts = [
     cfg.StrOpt('auth_password',
                default="password",
                help="REST API passord."),
+    cfg.StrOpt('isrm_dir',
+               default='/var/log/isrm',
+               help="ISRM dir with json files for rebuilding"),
+    cfg.ListOpt('public_network',
+                default=[],
+                help="List of public networks"),
+    cfg.IntOpt('max_parallel_jobs',
+               default=2,
+               help="Max count of pararllel executed jobs."),
+    cfg.IntOpt('instance_rebuild_timeout',
+               default=2,
+               help="Timeout between of rebuilding instances."),
 ]
 
 

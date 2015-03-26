@@ -21,7 +21,8 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'isrm=isrm.server:main']},
+            'isrm=isrm.server:main',
+            'isrm_rebuilder=isrm.rebuilder:main']},
 
     # metadata for upload to PyPI
     description="Rebuilding of instances service",

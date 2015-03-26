@@ -41,6 +41,10 @@ Example of config
   auth_login=user
   auth_password=password
   log_file=/var/log/isrm.log
+  isrm_dir=/var/log/isrm
+  public_network=net1,net2
+  max_parallel_jobs=2
+  instance_rebuild_timeout=2
 
   [openstack]
   auth_url=http://localhost:5000/v2.0
@@ -50,8 +54,17 @@ Example of config
 
 Usage
 -----
+Run REST API server that will store json in isrm_dir.
+
 .. code-block:: bash
 
   $ isrm --config-file=../isrm.conf
    * Running on http://127.0.0.1:8080/ (Press CTRL+C to quit)
    * Restarting with stat
+
+Run json handler by command:
+
+.. code-block:: bash
+
+  isrm_rebuilder --config-file=/home/sshturm/Documents/isrm.conf 
+  2015-03-24 15:16:54 INFO (rebuilder) Start json handler in /var/log/isrm dir

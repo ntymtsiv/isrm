@@ -13,9 +13,9 @@
 #    under the License.
 
 import logging
+import os
 import sys
 
-import eventlet
 import flask
 from flask.ext import restful
 from oslo.config import cfg
@@ -23,12 +23,8 @@ from oslo.config import cfg
 from isrm import cfg as config
 from isrm import logger
 from isrm import controller
-from keystoneclient.auth.identity import v2
-from keystoneclient import session
-from novaclient import client as nova_cli
 
 
-eventlet.monkey_patch()
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
@@ -42,12 +38,9 @@ api.add_resource(controller.Jobs, '/')
 def main():
     config.parse_args(sys.argv)
     logger.setup(log_file=CONF.log_file)
-    auth = v2.Password(auth_url=CONF.openstack.auth_url,
-                       username=CONF.openstack.user,
-                       password=CONF.openstack.password,
-                       tenant_name=CONF.openstack.tenant)
-    sess = session.Session(auth=auth)
-    controller.NOVA_CLI = nova_cli.Client(2, session=sess)
+    isrm_dir = CONF.isrm_dir
+    if not os.path.exists(isrm_dir):
+        os.mkdir(isrm_dir)
 
     host, port = CONF.host, CONF.port
     try:

@@ -11,45 +11,21 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from functools import wraps
-import logging
 
-import eventlet
+import datetime
+from functools import wraps
+import json
+import logging
+import uuid
+
 from flask import request
 from flask.ext import restful
 from flask.ext.restful import abort
-from novaclient import exceptions
 from oslo.config import cfg
 
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
-NOVA_CLI = None
-
-
-def rebuild(instances):
-    for i in instances:
-        uuid = i.get('instance', None)
-        image = i.get('image', None)
-        if uuid is None or image is None:
-            LOG.error("Instance or image field is missing.")
-        try:
-            instance = NOVA_CLI.servers.get(uuid)
-        except exceptions.NotFound as e:
-            LOG.error("Instance `%s` was not found." % uuid)
-            continue
-        if instance.image['id'] == image:
-            LOG.info("Task for instance %s was skipped."
-                     " It is rebuilded." % uuid)
-            continue
-        try:
-            instance.rebuild(image)
-            LOG.info("Rebuild for instance %s is started."
-                     " Expected image %s." % (uuid, image))
-        except exceptions.BadRequest as e:
-            LOG.error("Rebuld for instance %s was failed."
-                      " %s" % (uuid, e.message))
-            continue
 
 
 def authenticate(func):
@@ -80,7 +56,33 @@ class Jobs(restful.Resource):
             data = request.json
         except Exception:
             abort(400, message="Data is missing.")
-        if 'instances' not in data:
-            abort(400, message="Instances is missing in data.")
-        eventlet.spawn_n(rebuild, data['instances'])
-        return {"status": "started"}
+        mandatory = set(['deprecated_image', 'new_image'])
+        if mandatory & set(data.keys()) != mandatory:
+            missing = mandatory - set(data.keys())
+            abort(400, message="Fields %s are missing." % str(missing))
+        date_format = '%Y-%m-%dT%H:%M'
+        if 'date' in data:
+            try:
+                date = datetime.datetime.strptime(data['date'], date_format)
+            except ValueError:
+                abort(400, message="Wrong format of date. Use Y-m-dTH:M")
+        else:
+            date = datetime.datetime.now()
+        str_date = date.strftime('%Y_%m_%d_%H_%M')
+        tenant = data.get('tenant_name', None)
+        if not isinstance(tenant, list):
+            tenant = [tenant]
+        jobs = []
+        for t in tenant:
+            _data = data.copy()
+            _data['tenant_name'] = t
+            _uuid = str(uuid.uuid1())
+            name = 'J'.join((str_date, _uuid))
+            full_path = '/'.join((CONF.isrm_dir, name + '.json'))
+            with open(full_path, 'w') as f:
+                json.dump(_data, f, sort_keys=True, indent=4,
+                          ensure_ascii=False)
+                jobs.append({"id": _uuid,
+                             "job_name": name,
+                             "date": date.strftime('%Y-%m-%dT%H:%M')})
+        return {"jobs": jobs}
