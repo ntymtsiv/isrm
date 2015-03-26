@@ -15,9 +15,11 @@ Example of data:
 
 .. code-block:: bash
 
-  {"instances": [
-    {"instance" : "instance_uuid1", "image": "image_uuid"},
-    {"instance" : "instance_uuid2", "image": "image_uuid"}]
+  {
+    "new_image": "039f1b78-e114-47bc-87b5-22c67c35e49d",
+    "deprecated_image": "c7360e10-c352-418c-99f2-065e1318aa2d",
+    "tenant_name": ["demo", "admin"],
+    "date": "2015-03-25T15:55"
   }
 
 Example of response:
