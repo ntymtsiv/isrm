@@ -10,6 +10,15 @@ All volumes, ports and other specific information about VM will be saved.
 
 List of supported URL's:
  - POST /
+ - GET /jobs
+     list of filtered params:
+         - status (active),
+         - date (format "2015-03-25T15:55"),
+         - new_image,
+         - deprecated_image,
+         - tenant_name.
+ - GET /job/<job_id>
+ - DELETE /job/<job_id>
 
 Example of data:
 

@@ -23,6 +23,7 @@ import time
 from oslo.config import cfg
 
 from isrm import cfg as config
+from isrm import constants
 from isrm import logger
 from keystoneclient.auth.identity import v2
 from keystoneclient import session
@@ -68,9 +69,9 @@ class Reader(object):
         return False
 
     def _rebuild(self, data, f_name):
-        image_old = data['deprecated_image']
-        image_new = data['new_image']
-        tenant = data.get('tenant_name', None)
+        image_old = data[constants.DEPRECEATED_IMAGE]
+        image_new = data[constants.NEW_IMAGE]
+        tenant = data.get(constants.TENANT_NAME, None)
         search_opts = {'image': image_old}
         if tenant is None:
             search_opts['all_tenants'] = 1

@@ -27,6 +27,7 @@ from flask import request
 from oslo.config import cfg
 
 from isrm import cfg as config
+from isrm import constants
 from isrm import logger
 
 
@@ -64,7 +65,8 @@ def rebuild():
     except Exception:
         LOG.error("Data is missing.")
         abort(400)
-    mandatory = set(['deprecated_image', 'new_image'])
+    mandatory = set([constants.DEPRECEATED_IMAGE,
+                     constants.NEW_IMAGE])
     if mandatory & set(data.keys()) != mandatory:
         missing = mandatory - set(data.keys())
         abort(400)
@@ -86,6 +88,7 @@ def rebuild():
     for t in tenant:
         _data = data.copy()
         _data['tenant_name'] = t
+        _data['date'] = date.strftime(date_format)
         _uuid = str(uuid.uuid1())
         name = 'J'.join((str_date, _uuid))
         full_path = '/'.join((CONF.isrm_dir, name + '.json'))
@@ -96,6 +99,82 @@ def rebuild():
                          "job_name": name,
                          "date": date.strftime('%Y-%m-%dT%H:%M')})
     return jsonify({"jobs": jobs})
+
+
+def get_all_jobs():
+    jobs = []
+    isrm_d = CONF.isrm_dir
+    all_files = [f for (dp, dn, f) in os.walk(isrm_d)][0]
+    for f in all_files:
+        f_name = '/'.join((isrm_d, f))
+        with open(f_name, 'r') as f:
+            try:
+                data = json.loads(f.read())
+            except ValueError:
+                continue
+            data.update({"id": f_name.split("J")[1][:-5],
+                         "job_name": f_name})
+            jobs.append(data)
+    return jobs
+
+
+def get_name(jobs, name):
+    full_name = 'J%s.json' % name
+    for f in jobs:
+        if full_name in f:
+            return f
+    abort(404)
+
+
+@app.route('/jobs', methods=['GET'])
+@authenticate
+def get_jobs():
+    filters = dict(request.args)
+    allowed_filters_fields = [constants.DEPRECEATED_IMAGE,
+                              constants.NEW_IMAGE,
+                              constants.TENANT_NAME]
+    jobs = get_all_jobs()
+    if 'status' in filters:
+        if 'active' in filters['status']:
+            jobs = [j for j in jobs if '.lock' in j['job_name']]
+        else:
+            jobs = []
+    if 'date' in filters:
+        jobs = [j for j in jobs if filters['date'][0] in j['date']]
+    filter_fields = set(allowed_filters_fields) & set(filters.keys())
+    for field in filter_fields:
+        jobs = [j for j in jobs if j[field] in filters[field]]
+    return jsonify({"jobs": jobs})
+
+
+@app.route('/job/<job_id>', methods=['GET'])
+@authenticate
+def get_job(job_id):
+    isrm_d = CONF.isrm_dir
+    all_files = [f for (dp, dn, f) in os.walk(isrm_d)][0]
+    f_name = get_name(all_files, job_id)
+    with open(f_name, 'r') as f:
+        try:
+            data = json.loads(f.read())
+            data.update({"id": job_id})
+        except ValueError:
+            return jsonify({"error": "failed json format"})
+    return jsonify({"job": data})
+
+
+@app.route('/job/<job_id>', methods=['DELETE'])
+@authenticate
+def delete_job(job_id):
+    isrm_d = CONF.isrm_dir
+    all_files = [f for (dp, dn, f) in os.walk(isrm_d)][0]
+    f_name = get_name(all_files, job_id)
+    full_name = '/'.join((isrm_d, f_name))
+    try:
+        os.remove(full_name)
+        status = 'deleted'
+    except OSError:
+        status = "failed (no such file)"
+    return jsonify({"status": status})
 
 
 def main():
