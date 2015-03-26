@@ -12,17 +12,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import datetime
+from functools import wraps
+import json
 import logging
 import os
 import sys
+import uuid
 
 import flask
-from flask.ext import restful
+from flask import abort
+from flask import jsonify
+from flask import request
 from oslo.config import cfg
 
 from isrm import cfg as config
 from isrm import logger
-from isrm import controller
 
 
 CONF = cfg.CONF
@@ -30,9 +35,67 @@ LOG = logging.getLogger(__name__)
 
 
 app = flask.Flask('isrm')
-api = restful.Api(app)
 
-api.add_resource(controller.Jobs, '/')
+
+def authenticate(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not getattr(func, 'authenticated', True):
+            return func(*args, **kwargs)
+
+        creds = request.authorization
+        if creds is None:
+            abort(401)
+        user = creds['username']
+        password = creds['password']
+        acct = user == CONF.auth_login and password == CONF.auth_password
+        if acct:
+            return func(*args, **kwargs)
+
+        abort(401)
+    return wrapper
+
+
+@app.route('/', methods=['POST'])
+@authenticate
+def rebuild():
+    try:
+        data = request.json
+    except Exception:
+        LOG.error("Data is missing.")
+        abort(400)
+    mandatory = set(['deprecated_image', 'new_image'])
+    if mandatory & set(data.keys()) != mandatory:
+        missing = mandatory - set(data.keys())
+        abort(400)
+        LOG.error("Fields %s are missing." % str(missing))
+    date_format = '%Y-%m-%dT%H:%M'
+    if 'date' in data:
+        try:
+            date = datetime.datetime.strptime(data['date'], date_format)
+        except ValueError:
+            abort(400)
+            LOG.error("Wrong format of date. Use Y-m-dTH:M")
+    else:
+        date = datetime.datetime.now()
+    str_date = date.strftime('%Y_%m_%d_%H_%M')
+    tenant = data.get('tenant_name', None)
+    if not isinstance(tenant, list):
+        tenant = [tenant]
+    jobs = []
+    for t in tenant:
+        _data = data.copy()
+        _data['tenant_name'] = t
+        _uuid = str(uuid.uuid1())
+        name = 'J'.join((str_date, _uuid))
+        full_path = '/'.join((CONF.isrm_dir, name + '.json'))
+        with open(full_path, 'w') as f:
+            json.dump(_data, f, sort_keys=True, indent=4,
+                      ensure_ascii=False)
+            jobs.append({"id": _uuid,
+                         "job_name": name,
+                         "date": date.strftime('%Y-%m-%dT%H:%M')})
+    return jsonify({"jobs": jobs})
 
 
 def main():
