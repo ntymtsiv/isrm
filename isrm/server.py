@@ -24,6 +24,8 @@ import flask
 from flask import abort
 from flask import jsonify
 from flask import request
+from keystoneclient.v2_0 import client
+from keystoneclient import exceptions
 from oslo.config import cfg
 
 from isrm import cfg as config
@@ -47,10 +49,16 @@ def authenticate(func):
         creds = request.authorization
         if creds is None:
             abort(401)
-        user = creds['username']
-        password = creds['password']
-        acct = user == CONF.auth_login and password == CONF.auth_password
-        if acct:
+        try:
+            keystone = client.Client(auth_url=CONF.openstack.auth_url,
+                                     username=creds['username'],
+                                     password=creds['password'],
+                                     tenant_name=CONF.openstack.tenant)
+            roles = keystone.auth_ref['user']['roles']
+            roles_name = [t['name'] for t in roles]
+        except exceptions.Unauthorized:
+            abort(401)
+        if 'admin' in roles_name:
             return func(*args, **kwargs)
 
         abort(401)

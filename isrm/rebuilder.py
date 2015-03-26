@@ -45,7 +45,7 @@ class Reader(object):
         sess = session.Session(auth=auth)
         return nova_cli.Client(2, session=sess)
 
-    def _rebild_instances(self, instances, image, nova_cli):
+    def _rebuild_instances(self, instances, image, nova_cli):
         for i in instances:
             uuid = i.id
             try:
@@ -83,7 +83,7 @@ class Reader(object):
             has_floating = self._has_floating(i)
             if not public and not has_floating:
                 filtered.append(i)
-        self._rebild_instances(filtered, image_new, nova_cli)
+        self._rebuild_instances(filtered, image_new, nova_cli)
         os.remove(f_name)
 
     def find_files(self):
