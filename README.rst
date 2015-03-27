@@ -17,8 +17,27 @@ List of supported URL's:
          - new_image,
          - deprecated_image,
          - tenant_name.
+   If user is not admin tenant_name should be specified for authorisation
+   Example:
+      GET /jobs?tenant_name=demo
  - GET /job/<job_id>
+   If user is not admin tenant_name should be specified for authorisation
+   Example:
+      GET /job/<job_id>?tenant_name=demo
  - DELETE /job/<job_id>
+   If user is not admin tenant_name should be specified for authorisation
+   Example:
+      GET /job/<job_id>?tenant_name=demo
+
+For access to jobs basic authorisation will be used.
+Username and password will be taken with tenant_name
+(from json in POST case and from url data in other cases). They will be used
+for keystone authorisation.
+Admin user can do any operations with any tenants.
+Nonadmin user can operate only with  allowed tenants.
+
+If user is not admin and a few tenants are specified in json firts tenant
+will be taken for auth.
 
 Example of data:
 
