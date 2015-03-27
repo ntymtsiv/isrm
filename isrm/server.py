@@ -239,6 +239,6 @@ def main():
     try:
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        app.run(host=host, port=port, debug=CONF.debug)
+        app.run(host=host, port=port)
     except KeyboardInterrupt:
         pass

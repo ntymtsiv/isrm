@@ -73,7 +73,6 @@ Example of config
   [DEFAULT]
   host=localhost
   port=8080
-  debug=False
   auth_login=user
   auth_password=password
   log_file=/var/log/isrm.log
