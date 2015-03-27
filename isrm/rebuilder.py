@@ -56,7 +56,7 @@ class Reader(object):
                 LOG.error("Rebuld for instance %s was failed."
                           " %s" % (uuid, e.message))
             except exceptions.Conflict as e:
-                LOG.error("Instance %s is in rebuilding state." % uuid)
+                LOG.error("Instance %s in rebuilding state." % uuid)
             except Exception as e:
                 LOG.error("Unexpected error %s." % e.message)
             time.sleep(CONF.instance_rebuild_timeout)
@@ -135,7 +135,7 @@ class Reader(object):
 
 def main():
     config.parse_args(sys.argv)
-    logger.setup(log_file=CONF.log_file)
+    logger.setup(log_file=CONF.log_file, rebuilder=True)
 
     reader = Reader()
     LOG.info("Start json handler in %s dir" % CONF.isrm_dir)

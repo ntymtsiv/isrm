@@ -20,10 +20,15 @@ import os
 _LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def setup(log_file=None):
-    formatter = logging.Formatter(
-        '%(asctime)s %(levelname)s (%(module)s) %(message)s',
-        _LOG_TIME_FORMAT)
+def setup(log_file=None, rebuilder=False):
+    if not rebuilder:
+        formatter = logging.Formatter(
+            '%(asctime)s [REST API] %(levelname)s (%(module)s) %(message)s',
+            _LOG_TIME_FORMAT)
+    else:
+        formatter = logging.Formatter(
+            '%(asctime)s [REBUILDER] %(levelname)s (%(module)s) %(message)s',
+            _LOG_TIME_FORMAT)
     log = logging.getLogger(None)
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
