@@ -47,50 +47,20 @@ def authenticate(func):
         if not getattr(func, 'authenticated', True):
             return func(*args, **kwargs)
 
-        try:
-            data = request.json
-        except Exception:
-            data = {}
-        tenant_json = data.get(constants.TENANT_NAME, None)
-
-        filters = dict(request.args)
-        tenants_data = filters.get(constants.TENANT_NAME, [None])
-        tenant = tenant_json or tenants_data
-
-        if not isinstance(tenant, list):
-            tenant = [tenant]
-
         creds = request.authorization
         if creds is None:
             abort(401)
-        tenant_name = tenant[0] or CONF.openstack.tenant
         try:
             keystone = client.Client(auth_url=CONF.openstack.auth_url,
                                      username=creds['username'],
                                      password=creds['password'],
-                                     tenant_name=tenant_name)
+                                     tenant_name=CONF.openstack.tenant)
             roles = keystone.auth_ref['user']['roles']
             roles_name = [t['name'] for t in roles]
         except exceptions.Unauthorized:
             abort(401)
-
-        is_admin = 'admin' in roles_name
-        if is_admin:
-            allowed_tenants = [t.name for t in keystone.tenants.list()]
-            filter_tenants = set(tenant)
-        else:
-            allowed_tenants = [tenant_name]
-            filter_tenants = set(tenant) & set(allowed_tenants)
-        _data = data.copy()
-        _data[constants.TENANT_NAME] = filter_tenants
-        _data['allowed_tenants'] = allowed_tenants
-        _data['is_admin'] = is_admin
-        post_or_delete = request.method in ['POST', 'DELETE']
-        get = request.method == 'GET'
-
-        if is_admin or (filter_tenants and post_or_delete)\
-                or (allowed_tenants and get):
-            return func(_data, *args, **kwargs)
+        if 'admin' in roles_name:
+            return func(*args, **kwargs)
 
         abort(401)
     return wrapper
@@ -98,7 +68,12 @@ def authenticate(func):
 
 @app.route('/', methods=['POST'])
 @authenticate
-def rebuild(data):
+def rebuild():
+    try:
+        data = request.json
+    except Exception:
+        LOG.error("Data is missing.")
+        abort(400)
     mandatory = set([constants.DEPRECEATED_IMAGE,
                      constants.NEW_IMAGE])
     if mandatory & set(data.keys()) != mandatory:
@@ -116,6 +91,8 @@ def rebuild(data):
         date = datetime.datetime.now()
     str_date = date.strftime('%Y_%m_%d_%H_%M')
     tenant = data.get(constants.TENANT_NAME)
+    if not isinstance(tenant, list):
+        tenant = [tenant]
     jobs = []
     for t in tenant:
         _data = data.copy()
@@ -160,11 +137,8 @@ def get_name(jobs, name):
 
 @app.route('/jobs', methods=['GET'])
 @authenticate
-def get_jobs(data):
+def get_jobs():
     filters = dict(request.args)
-    tenants = filters.get(constants.TENANT_NAME, [None])
-    tenants = set(tenants) or set(data['allowed_tenants'])
-    data[constants.TENANT_NAME] = tenants
     allowed_filters_fields = [constants.DEPRECEATED_IMAGE,
                               constants.NEW_IMAGE,
                               constants.TENANT_NAME]
@@ -184,42 +158,27 @@ def get_jobs(data):
 
 @app.route('/job/<job_id>', methods=['GET'])
 @authenticate
-def get_job(data, job_id):
+def get_job(job_id):
     isrm_d = CONF.isrm_dir
     all_files = [f for (dp, dn, f) in os.walk(isrm_d)][0]
     f_name = get_name(all_files, job_id)
     full_name = '/'.join((isrm_d, f_name))
     with open(full_name, 'r') as f:
         try:
-            _data = json.loads(f.read())
-            job_tenants = [_data[constants.TENANT_NAME]]
-            is_admin = data['is_admin']
-            if is_admin or (set(job_tenants) & set(data['allowed_tenants'])):
-                _data.update({"id": job_id})
-            else:
-                abort(401)
+            data = json.loads(f.read())
+            data.update({"id": job_id})
         except ValueError:
             return jsonify({"error": "failed json format"})
-    return jsonify({"job": _data})
+    return jsonify({"job": data})
 
 
 @app.route('/job/<job_id>', methods=['DELETE'])
 @authenticate
-def delete_job(data, job_id):
+def delete_job(job_id):
     isrm_d = CONF.isrm_dir
     all_files = [f for (dp, dn, f) in os.walk(isrm_d)][0]
     f_name = get_name(all_files, job_id)
     full_name = '/'.join((isrm_d, f_name))
-    with open(full_name, 'r') as f:
-        try:
-            _data = json.loads(f.read())
-            job_tenants = [_data[constants.TENANT_NAME]]
-            is_admin = data['is_admin']
-            allowed_tenants = data['allowed_tenants']
-            if not (is_admin or (set(job_tenants) & set(allowed_tenants))):
-                abort(401)
-        except ValueError:
-            return jsonify({"error": "failed json format"})
     try:
         os.remove(full_name)
         status = 'deleted'
