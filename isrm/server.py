@@ -78,15 +78,15 @@ def rebuild():
                      constants.NEW_IMAGE])
     if mandatory & set(data.keys()) != mandatory:
         missing = mandatory - set(data.keys())
-        abort(400)
         LOG.error("Fields %s are missing." % str(missing))
+        abort(400)
     date_format = '%Y-%m-%dT%H:%M'
     if 'date' in data:
         try:
             date = datetime.datetime.strptime(data['date'], date_format)
         except ValueError:
-            abort(400)
             LOG.error("Wrong format of date. Use Y-m-dTH:M")
+            abort(400)
     else:
         date = datetime.datetime.now()
     str_date = date.strftime('%Y_%m_%d_%H_%M')
