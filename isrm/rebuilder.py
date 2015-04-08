@@ -25,6 +25,7 @@ from oslo.config import cfg
 from isrm import cfg as config
 from isrm import constants
 from isrm import logger
+from keystoneclient.v2_0 import client
 from keystoneclient.auth.identity import v2
 from keystoneclient import session
 from novaclient import exceptions
@@ -37,12 +38,17 @@ LOG = logging.getLogger(__name__)
 
 class Reader(object):
 
-    def _get_cli(self, tenant=None):
+    def _get_cli(self):
         auth = v2.Password(auth_url=CONF.openstack.auth_url,
                            username=CONF.openstack.user,
                            password=CONF.openstack.password,
-                           tenant_name=tenant or CONF.openstack.tenant)
+                           tenant_name=CONF.openstack.tenant)
         sess = session.Session(auth=auth)
+        keystone = client.Client(auth_url=CONF.openstack.auth_url,
+                                 username=CONF.openstack.user,
+                                 password=CONF.openstack.password,
+                                 tenant_name=CONF.openstack.tenant)
+        self.tenants = dict([(t.name, t.id) for t in keystone.tenants.list()])
         return nova_cli.Client(2, session=sess)
 
     def _rebuild_instances(self, instances, image, nova_cli):
@@ -71,11 +77,15 @@ class Reader(object):
     def _rebuild(self, data, f_name):
         image_old = data[constants.DEPRECEATED_IMAGE]
         image_new = data[constants.NEW_IMAGE]
-        tenant = data.get(constants.TENANT_NAME, None)
-        search_opts = {'image': image_old}
-        if tenant is None:
-            search_opts['all_tenants'] = 1
-        nova_cli = self._get_cli(tenant)
+        tenant_name = data.get(constants.TENANT_NAME, None)
+        nova_cli = self._get_cli()
+        search_opts = {'all_tenants': 1, 'image': image_old}
+        if tenant_name is not None:
+            tenant_id = self.tenants.get(tenant_name, None)
+            if tenant_id is None:
+                LOG.error("Tenant %s was not found." % tenant_name)
+                return
+            search_opts['tenant_id'] = tenant_id
         instances = nova_cli.servers.list(search_opts=search_opts)
         filtered = []
         for i in instances:
