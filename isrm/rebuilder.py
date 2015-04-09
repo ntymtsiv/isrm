@@ -48,6 +48,8 @@ class Reader(object):
                                  username=CONF.openstack.user,
                                  password=CONF.openstack.password,
                                  tenant_name=CONF.openstack.tenant)
+        keystone = client.Client(endpoint=CONF.openstack.auth_url,
+                                 token=keystone.auth_token)
         self.tenants = dict([(t.name, t.id) for t in keystone.tenants.list()])
         return nova_cli.Client(2, session=sess)
 
