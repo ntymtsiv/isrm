@@ -13,7 +13,7 @@
 #    under the License.
 
 
-from oslo_config import cfg
+from oslo.config import cfg
 
 
 from isrm import version
